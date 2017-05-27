@@ -18,15 +18,9 @@
 #define WINSCREEN 0
 
 #define BNO055_SAMPLERATE_DELAY_MS (100)
-// TFT_ILI9163C tft = TFT_ILI9163C(GPIO_LCD_CS, GPIO_LCD_DC);
-// Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_LEDS, GPIO_WS2813, NEO_GRB + NEO_KHZ800);
 Adafruit_BNO055 bno = Adafruit_BNO055(BNO055_ID, BNO055_ADDRESS_B);
 
 Badge badge;
-
-// #define STORAGEDEPTH 112
-
-
 
 imu::Quaternion quat;
 imu::Vector<3> euler;
@@ -57,6 +51,7 @@ int middle = 60;
 int wallcount = 4;
 int goalcount = 1;
 int level = 1;
+int lifes = 3;
 int goalsReached = 0;
 intvec winscreenpos;
 
@@ -73,16 +68,14 @@ int avoidMiddlePos(int a) {
 }
 
 void initWalls() {
-  // wallcount = 10;
   memset(walls, 0, sizeof(walls));
-  wallcount = level + 2;
+  wallcount = constrain(level + 2, 0, 19);
   for (int j = 0; j < wallcount; j++) {
     walls[j].x = avoidMiddlePos(random(10, 128));
     walls[j].y = avoidMiddlePos(random(10, 128));
-    walls[j].w = random(3, 10);
-    walls[j].h = random(3, 45);
+    walls[j].w = random(4, 10);
+    walls[j].h = random(4, 43);
     walls[j].color = RED;
-    
   }
 }
 
@@ -93,17 +86,16 @@ void initGoals() {
     
     goals[j].x = random(0, 128);
     goals[j].y = random(0, 128);
-    goals[j].r = random(10, 20);
+    goals[j].r = random(11, 20);
     goals[j].color = GREEN;
     goals[j].checked = false;
-    
   }
 }
 
 void initPlayer() {
   kugelpos.x = 60.0f;
   kugelpos.y = 60.0f;
-  kugelpos.r = 5;
+  kugelpos.r = 4;
   kugelpos.color = WHITE;
 }
 
@@ -132,6 +124,12 @@ int checkHitWalls() {
       }
     }
     return -1;
+  }
+  
+  void moveRandomBlock() {
+    int r = random(0, wallcount);
+    walls[r].x += ((random(0, 100) - 50) / 100.0);
+    walls[r].y += ((random(0, 100) - 50) / 100.0);
   }
     
     
@@ -167,15 +165,17 @@ int checkHitWalls() {
     }
     
     void renderInfo() {
-        tft.setCursor(5, 5);
-        tft.setTextColor(WHITE);
-        tft.setTextSize(1);
-        tft.print("Level: ");
-        tft.print(level, DEC);
-        tft.print(" / ");
-        tft.print(MAXLEVEL, DEC);
-        tft.setCursor(5, 15);
-        
+      
+      for (size_t i = 0; i < lifes; i++) {
+        tft.setCursor(110 + (i*5), 3);
+        tft.println("*");
+      }
+      tft.setCursor(5, 5);
+      tft.setTextColor(WHITE);
+      tft.setTextSize(1);
+      tft.print(level, DEC);
+      tft.print(" / ");
+      tft.print(MAXLEVEL, DEC);
     }
     
     void renderPlayer() {
@@ -195,6 +195,7 @@ int checkHitWalls() {
     
     void render() {
       tft.fillScreen(BLACK);
+
       if(level == WINSCREEN) {
         // If winscreen
         renderWinScreen();
@@ -210,6 +211,9 @@ int checkHitWalls() {
     
     void startLevel(int l) {
       level = l;
+      if(level == 1) {
+        lifes = 3;
+      }
       goalsReached = 0;
 
       initPlayer();
@@ -218,6 +222,7 @@ int checkHitWalls() {
     }
     
     void setup() {
+      
       badge.init();
       badge.setBacklight(true);
       bno.begin();
@@ -230,6 +235,7 @@ int checkHitWalls() {
       File f = SPIFFS.open("/rom"+String(rboot_config.current_rom),"w");
       f.println("Kugelspiel\n");
       tft.begin();
+      
       startLevel(1);
     }
     
@@ -242,6 +248,10 @@ int checkHitWalls() {
         }
         render();
         return;
+      }
+      
+      if(level == MAXLEVEL) {
+        moveRandomBlock();
       }
       
       euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
@@ -276,7 +286,7 @@ int checkHitWalls() {
           } else {
             startLevel(level + 1);
             render();
-            delay(500);
+            delay(1000);
             return;
           }
           
@@ -287,12 +297,24 @@ int checkHitWalls() {
 
       
       int wallhit = checkHitWalls();
+      
       if(wallhit != -1) {
-        badge.setVibrator(true);
-        delay(1000);
-        badge.setVibrator(false);
-        startLevel(1);
-        delay(1000);
+        lifes--;
+        if(lifes >= 1) {
+          // reset position on life loss
+          badge.setVibrator(true);
+          delay(100);
+          badge.setVibrator(false);
+          kugelpos.x = 60.0f;
+          kugelpos.y = 60.0f;
+        } else if (lifes == 0) {
+          badge.setVibrator(true);
+          delay(1000);
+          badge.setVibrator(false);
+          startLevel(1);
+          delay(1000);
+        }
+
       }
       
 
