@@ -109,7 +109,7 @@ int checkHitWalls() {
   
   int checkHitGoals() {
     for (int i = 0; i < goalcount; i++) {
-      if(goals[i].checked) continue;
+      if(goals[i].checked == true) continue;
       
       int dx = kugelpos.x - goals[i].x;
       int dy = kugelpos.y - goals[i].y;
@@ -132,6 +132,7 @@ int checkHitWalls() {
     
     void renderGoals() {
       for (int i = 0; i < goalcount; i++) {
+        if(goals[i].checked == true) continue;
         tft.drawCircle(goals[i].x, goals[i].y, goals[i].r, goals[i].color);
         tft.fillCircle(goals[i].x, goals[i].y, goals[i].r, goals[i].color);
       }
@@ -218,6 +219,7 @@ int checkHitWalls() {
       dat.x = euler.x()*0.125;
       dat.y = euler.y()*0.125;
       dat.z = euler.z()*0.125;
+      
       kugelpos.x -= dat.y;
       kugelpos.y -= dat.z;
       kugelpos.x = constrain(kugelpos.x, 0, 128);
